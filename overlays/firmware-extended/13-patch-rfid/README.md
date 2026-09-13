@@ -29,6 +29,22 @@ Patch set in `overlays/firmware-extended/13-rfid-support/patches`:
   - Adds `CARD_EVENT_TIME` (`self.reactor.monotonic()`, `float`) to `FILAMENT_INFO_STRUCT`,
     stamped in `_filament_info_update` and directly in `_handle_filament_detect_set` on every
     write to a channel's record.
+- `10-ntag216-full-read.patch`
+  - Applies on top of patch 01. Renames `__reader_a_ntag215_read_all_data` to
+    `__reader_a_ntag_read_all_data` and makes the read size follow the tag instead of a fixed
+    135 pages.
+  - Pages are read until the tag NAKs, then the buffer is truncated to the largest entry in
+    `FM175XX_NTAG_KNOWN_PAGE_COUNTS` that was fully covered, which also discards the
+    roll-over bytes the final read returns. No GET_VERSION command is sent, so no card
+    re-selection is needed.
+  - NTAG216 now yields all 924 bytes rather than the first 540. NTAG213 now reads at all —
+    the fixed 135-page loop NAKed at page 48 and discarded the tag, so no NTAG213 was
+    readable in any format before this patch. It yields 180 bytes, enough for OpenSpool
+    JSON but not for a compliant OpenTag3D payload.
+  - `card_data` is now variable length. Downstream (`filament_detect.py` patch 07) already
+    length-checks before indexing.
+  - Tags that answer fewer pages than an NTAG213, such as a plain Mifare Ultralight, still
+    fail with `FM175XX_CARD_READ_ERR`.
 
 ## API Contract
 

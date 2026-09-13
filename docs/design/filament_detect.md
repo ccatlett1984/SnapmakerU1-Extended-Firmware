@@ -289,11 +289,42 @@ Transformation trace for this example:
 | `RGB_1 + ALPHA` | `3366CC80` | `print_task_config.filament_color_rgba[0]` |
 | mirrored identity | `Generic PLA Basic` | `print_task_config.filament_vendor/type/sub_type[0]` |
 
+## OpenTag3D Input
+
+OpenTag3D tags are read natively by the built-in reader. The payload is the memory-mapped
+body of an NDEF record with MIME type `application/opentag3d`, rather than JSON, and is
+decoded by `filament_protocol_opentag3d.py`. Tag versions 1.000-1.003 and 2.000-2.001 are
+supported.
+
+OpenTag3D mapping profile:
+
+| OpenTag3D field | `filament_detect.info` | `print_task_config` target | Rule |
+|---|---|---|---|
+| `manufacturer` | `VENDOR`, `MANUFACTURER` | `filament_vendor[channel]` | `Generic` when empty |
+| `material` | `MAIN_TYPE` | `filament_type[channel]` | uppercased |
+| `material_mod` | `SUB_TYPE` | `filament_sub_type[channel]` | `Basic` when empty |
+| `color_1` | `RGB_1`, `ALPHA` | `filament_color_rgba[channel]` | RGBA on the tag; a zero alpha byte is read as `0xFF` |
+| `color_2`-`color_4` | `RGB_2`-`RGB_4` | `N/A` | all-zero entries skipped; `COLOR_NUMS` is the count of populated colors |
+| `print_temp`, `min_print_temp`, `max_print_temp` | `HOTEND_MIN_TEMP`, `HOTEND_MAX_TEMP` | `N/A` | min/max when populated, otherwise `print_temp` for both |
+| `bed_temp`, `min_bed_temp`, `max_bed_temp` | `BED_TEMP` | `N/A` | `bed_temp`, falling back to `min_bed_temp` then `max_bed_temp` |
+| `max_dry_temp` | `DRYING_TEMP` | `N/A` | |
+| `dry_time` | `DRYING_TIME` | `N/A` | hours |
+| `diameter` | `DIAMETER` | `N/A` | micrometres on the tag, hundredths of a mm in `filament_detect` |
+| `weight` | `WEIGHT` | `N/A` | grams |
+| `measured_length` | `LENGTH` | `N/A` | metres |
+| `mfg_date` | `MF_DATE` | `N/A` | `YYYYMMDD`, `19700101` when unset |
+| `sku` (2.x) | `SKU` | `N/A` | numeric SKUs only, otherwise `0` |
+| `tag_version` | `N/A` | `N/A` | selects the memory map; unsupported major versions are rejected |
+
+All tag temperatures are stored divided by 5 and are multiplied back out on read. See
+[OpenTag3D Format Design](opentag3d.md) for the full field reference.
+
 ## References
 
 Repository overlays:
 
 - `overlays/firmware-extended/13-patch-rfid/root/home/lava/klipper/klippy/extras/filament_protocol_ndef.py`
+- `overlays/firmware-extended/13-patch-rfid/root/home/lava/klipper/klippy/extras/filament_protocol_opentag3d.py`
 - `overlays/firmware-extended/13-patch-rfid/patches/02-add-ndef-protocol.patch`
 - `overlays/firmware-extended/13-patch-rfid/patches/05-add-filament-detect-set-endpoint.patch`
 - `overlays/firmware-extended/13-patch-rfid/patches/09-add-card-event-time.patch`

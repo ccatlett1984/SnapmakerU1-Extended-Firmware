@@ -6,6 +6,7 @@ import io
 import json
 import logging
 from . import filament_protocol
+from . import filament_protocol_opentag3d
 
 NDEF_OK = 0
 NDEF_ERR = -1
@@ -57,7 +58,7 @@ def ndef_parse(data_buf):
 
         cc = data_io.read(4)
         if len(cc) < 4 or cc[0] != 0xE1:
-            return NDEF_PARAMETER_ERR, []
+            return NDEF_PARAMETER_ERR, [], []
 
         records = []
 
@@ -257,6 +258,16 @@ def ndef_proto_data_parse(data_buf):
                 continue
             else:
                 logging.info(f"OpenSpool parse success: vendor={info.get('VENDOR')}, type={info.get('MAIN_TYPE')}")
+                return error_code, info
+
+        elif mime_type == filament_protocol_opentag3d.OPENTAG3D_MIME_TYPE:
+            logging.info(f"Detected OpenTag3D format, parsing payload ({len(payload)} bytes)")
+            error_code, info = filament_protocol_opentag3d.opentag3d_parse_payload(payload, card_uid)
+            if error_code != filament_protocol.FILAMENT_PROTO_OK:
+                logging.error(f"OpenTag3D parse failed: Payload parsing error (code: {error_code})")
+                continue
+            else:
+                logging.info(f"OpenTag3D parse success: vendor={info.get('VENDOR')}, type={info.get('MAIN_TYPE')}")
                 return error_code, info
 
         else:

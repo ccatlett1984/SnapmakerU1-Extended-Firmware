@@ -10,24 +10,28 @@ clears when filament is removed.
 
 **Firmware Support:**
 - **Original:** Mifare Classic 1K with Snapmaker proprietary format
-- **Extended:** Supports Custom Tags via OpenSpool, OpenRFID, or External Readers
+- **Extended:** Supports Custom Tags via OpenSpool, OpenTag3D, OpenRFID, or External Readers
 
 For the OpenSpool payload format and field reference, see
-[OpenSpool Format Design](openspool.md).
+[OpenSpool Format Design](openspool.md). For OpenTag3D, see
+[OpenTag3D Format Design](opentag3d.md).
 
 ## Readers
 
 What each detection system or hardware reader can identify.
 
-| Reader | Author | Hardware | Snapmaker | OpenSpool | Bambu | Creality | Anycubic | Elegoo | Qidi | TigerTag | SpoolEase | SpoolLink | Support |
-|--------|--------|----------|-----------|-----------|-------|----------|----------|--------|------|----------|-----------|-----------|---------|
-| Snapmaker (built-in, default) | [Snapmaker](https://github.com/Snapmaker) | Internal | ✅ | ✅ | – | – | – | – | – | – | – | ✅ | — |
-| [OpenRFID](https://github.com/suchmememanyskill/OpenRFID) | [suchmememanyskill](https://github.com/suchmememanyskill) | Internal | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| External - wasikuss: [snapmaker-u1-remote-rfid-reader](https://github.com/wasikuss/snapmaker-u1-remote-rfid-reader) | [wasikuss](https://github.com/wasikuss) | External — ESP32-C3 + PN532 | – | ✅ | – | – | – | – | – | – | – | – | — |
-| External - baze: [snapmaker-u1-drybox-nfc-reader](https://gitlab.com/baze/snapmaker-u1-drybox-nfc-reader) | [baze](https://gitlab.com/baze) | External — ESP32-C3 + PN532, browser-flashable, [printable case](https://www.printables.com/model/1637071-remote-nfc-rfid-reader-for-snapmaker-u1) | – | ✅ | – | – | – | – | – | – | – | ✅ | — |
+| Reader | Author | Hardware | Snapmaker | OpenSpool | OpenTag3D | Bambu | Creality | Anycubic | Elegoo | Qidi | TigerTag | SpoolEase | SpoolLink | Support |
+|--------|--------|----------|-----------|-----------|-----------|-------|----------|----------|--------|------|----------|-----------|-----------|---------|
+| Snapmaker (built-in, default) | [Snapmaker](https://github.com/Snapmaker) | Internal | ✅ | ✅ | ✅ | – | – | – | – | – | – | – | ✅ | — |
+| [OpenRFID](https://github.com/suchmememanyskill/OpenRFID) | [suchmememanyskill](https://github.com/suchmememanyskill) | Internal | ✅ | ✅ | – | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| External - wasikuss: [snapmaker-u1-remote-rfid-reader](https://github.com/wasikuss/snapmaker-u1-remote-rfid-reader) | [wasikuss](https://github.com/wasikuss) | External — ESP32-C3 + PN532 | – | ✅ | – | – | – | – | – | – | – | – | – | — |
+| External - baze: [snapmaker-u1-drybox-nfc-reader](https://gitlab.com/baze/snapmaker-u1-drybox-nfc-reader) | [baze](https://gitlab.com/baze) | External — ESP32-C3 + PN532, browser-flashable, [printable case](https://www.printables.com/model/1637071-remote-nfc-rfid-reader-for-snapmaker-u1) | – | ✅ | – | – | – | – | – | – | – | – | ✅ | — |
 
 **Notes:**
 
+- **OpenTag3D** tags are parsed by the built-in reader on extended firmware, alongside
+  OpenSpool, with no configuration needed. Tag versions 1.000-1.003 and 2.000-2.001 are
+  supported; see [OpenTag3D Format Design](opentag3d.md).
 - **SpoolLink** means the reader reports a tag's UID to the printer even when
   it can't parse the tag's contents (unknown format, encrypted, or blank), so
   the spool can still be resolved by [SpoolLink](../spoolman.md#apps) UID
@@ -40,8 +44,9 @@ What each detection system or hardware reader can identify.
 
 ## Apps
 
-Community apps that create and write filament tags. The quickest way to write
-a tag is PrintTag-Web: open it in Chrome on Android, enter the filament
+Community apps that create and write filament tags. OpenTag3D tags can be written with
+SpoolKid or any app that writes an NDEF record of MIME type `application/opentag3d`.
+The quickest way to write an OpenSpool tag is PrintTag-Web: open it in Chrome on Android, enter the filament
 details, and tap an NTAG215/216 tag to the phone. Any app that writes NDEF
 with JSON (MIME type `application/json`) also works.
 
@@ -150,5 +155,12 @@ enabled by default. Add the processor to the same file to use them:
 - For OpenRFID issues, open Fluidd **Logs** and fetch `openrfid.log`
 
 **NTAG tags not read:**
-- NTAG215/216 support requires extended firmware; original firmware only
+- NTAG213/215/216 support requires extended firmware; original firmware only
   supports Mifare Classic 1K with the Snapmaker proprietary format
+- The reader retrieves the whole tag — 180 bytes on an NTAG213, 540 on an NTAG215,
+  924 on an NTAG216 — so a record may sit anywhere in tag memory, whatever the
+  format. Anything smaller than an NTAG213, such as a plain Mifare Ultralight, is
+  rejected as unreadable
+- NTAG213 is read, but 144 bytes of user memory cannot hold a compliant OpenTag3D
+  payload and the OpenTag3D specification dropped NTAG213 in version 2.000. An
+  OpenSpool JSON record fits comfortably
