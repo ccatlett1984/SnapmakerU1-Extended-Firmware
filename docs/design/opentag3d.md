@@ -8,9 +8,9 @@ title: OpenTag3D Format Design
 [OpenSpool](openspool.md), which stores JSON, OpenTag3D stores a fixed memory map as the
 payload of an NDEF record with MIME type `application/opentag3d`.
 
-The built-in reader parses OpenTag3D tags on extended firmware. No configuration is
-needed — a tag is recognised by its MIME type, so OpenSpool and OpenTag3D tags can be
-mixed freely across spools.
+OpenTag3D tags are read by [OpenRFID](rfid.md#readers), which must be enabled. A tag is
+recognised by its MIME type, so OpenSpool and OpenTag3D tags can be mixed freely across
+spools. The built-in Snapmaker reader does not parse OpenTag3D.
 
 ## Supported Versions
 
@@ -30,55 +30,50 @@ Trailing bytes missing from a short payload are treated as `0x00`.
 
 - NTAG215 or NTAG216 — the U1 hardware cannot read ISO 15693 tags
 - The OpenTag3D record must be the first `application/opentag3d` NDEF record
-- The reader retrieves the whole tag, 540 bytes on an NTAG215 and 924 on an NTAG216,
-  so the record may sit anywhere in tag memory
-- NTAG213 is read by the firmware, but its 144 bytes of user memory cannot hold a
-  compliant payload and the specification dropped NTAG213 in 2.000. Use it for
-  OpenSpool, not for OpenTag3D
+- OpenRFID retrieves the whole tag, 540 bytes on an NTAG215 and 924 on an NTAG216, so
+  the record may sit anywhere in tag memory
+- NTAG213 is read, but its 144 bytes of user memory cannot hold a compliant payload and
+  the specification dropped NTAG213 in 2.000. Use it for OpenSpool, not for OpenTag3D
 
 ## Field Mapping
 
 Temperatures on the tag are stored in degrees Celsius divided by 5 and are multiplied
 back out on read.
 
-| OpenTag3D field | `filament_detect` field | Rule |
+| OpenTag3D field | `GenericFilament` | Rule |
 |---|---|---|
-| `material` | `MAIN_TYPE` | uppercased |
-| `material_mod` | `SUB_TYPE` | `Basic` when empty |
-| `manufacturer` | `VENDOR`, `MANUFACTURER` | `Generic` when empty |
-| `color_1` | `RGB_1`, `ALPHA` | RGBA; a zero alpha byte is read as `0xFF` |
-| `color_2`–`color_4` | `RGB_2`–`RGB_4` | all-zero entries are skipped; `COLOR_NUMS` is the count of populated colors |
-| `diameter` | `DIAMETER` | micrometres on the tag, hundredths of a mm in `filament_detect` |
-| `weight` | `WEIGHT` | grams |
-| `measured_length` | `LENGTH` | metres |
-| `print_temp`, `min_print_temp`, `max_print_temp` | `HOTEND_MIN_TEMP`, `HOTEND_MAX_TEMP` | min/max when populated, otherwise `print_temp` for both |
-| `bed_temp`, `min_bed_temp`, `max_bed_temp` | `BED_TEMP` | `bed_temp`, falling back to `min_bed_temp` then `max_bed_temp` |
-| `max_dry_temp` | `DRYING_TEMP` | |
-| `dry_time` | `DRYING_TIME` | hours |
-| `mfg_date` | `MF_DATE` | `YYYYMMDD`; `19700101` when unset |
-| `sku` (2.x) | `SKU` | numeric SKUs only, otherwise `0` |
-| everything else | – | read but not exposed by `filament_detect` |
+| `material` | `type` | uppercased; rejected if not in `VALID_BASE_MATERIALS` |
+| `material_mod` | `modifiers` | single-element list, empty when unset |
+| `manufacturer` | `manufacturer` | `Generic` when empty |
+| `color_1`–`color_4` | `colors` | `0xAARRGGBB`; all-zero entries skipped, a zero alpha byte read as `0xFF` |
+| `diameter` | `diameter_mm` | micrometres on the tag, mm in `GenericFilament` |
+| `weight` | `weight_grams` | grams |
+| `print_temp`, `min_print_temp`, `max_print_temp` | `hotend_min_temp_c`, `hotend_max_temp_c` | min/max when populated, otherwise `print_temp` for both |
+| `bed_temp`, `min_bed_temp`, `max_bed_temp` | `bed_temp_c` | `bed_temp`, falling back to `min_bed_temp` then `max_bed_temp` |
+| `max_dry_temp` | `drying_temp_c` | |
+| `dry_time` | `drying_time_hours` | hours |
+| `mfg_date` | `manufacturing_date` | ISO 8601; `0001-01-01` when unset |
+| `td` | `td` | opaque thickness, stored x10 |
+| everything else | – | read but not carried by `GenericFilament` |
 
-`FIRST_LAYER_TEMP` and `OTHER_LAYER_TEMP` are set to `HOTEND_MIN_TEMP`, matching the
-OpenSpool parser.
+`GenericFilament` has no SKU or length field, so `sku`, `serial`, `barcode` and
+`measured_length` are not exposed.
+
+OpenRFID maps `GenericFilament` on to `filament_detect` through its webhook exporters;
+see [External RFID Support](filament_detect.md).
 
 ## Snapmaker Orca Naming Convention
 
 Snapmaker Orca matches filaments as `<brand> <type> <subtype>`, which for OpenTag3D is
 `<manufacturer> <material> <material_mod>` — for example a tag carrying `Polar Filament`,
-`PLA` and `Silk` appears as `Polar Filament PLA Silk`. Spools whose name Snapmaker Orca
+`PLA` and `Pure` appears as `Polar Filament PLA Pure`. Spools whose name Snapmaker Orca
 does not recognise are hidden there; see
 [Enabling OpenRFID](rfid.md#enabling-openrfid) for the generic vendor behaviour.
 
 ## Testing
 
-`overlays/firmware-extended/13-patch-rfid/test` contains sample NTAG215 dumps and a
-generator for building more:
+`test/opentag3d/` in the OpenRFID tree holds sample NTAG dumps:
 
 ```bash
-cd overlays/firmware-extended/13-patch-rfid/test
-python3 -m app.cli opentag3d-v1003-pla-silk.bin
-python3 -m app.cli opentag3d-v2001-pla-silk.bin
-
-python3 make_opentag3d_fixture.py 2.001 my-tag.bin
+python3 -m test.opentag3d
 ```

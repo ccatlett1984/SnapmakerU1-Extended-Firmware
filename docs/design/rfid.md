@@ -22,16 +22,16 @@ What each detection system or hardware reader can identify.
 
 | Reader | Author | Hardware | Snapmaker | OpenSpool | OpenTag3D | Bambu | Creality | Anycubic | Elegoo | Qidi | TigerTag | SpoolEase | SpoolLink | Support |
 |--------|--------|----------|-----------|-----------|-----------|-------|----------|----------|--------|------|----------|-----------|-----------|---------|
-| Snapmaker (built-in, default) | [Snapmaker](https://github.com/Snapmaker) | Internal | ✅ | ✅ | ✅ | – | – | – | – | – | – | – | ✅ | — |
-| [OpenRFID](https://github.com/suchmememanyskill/OpenRFID) | [suchmememanyskill](https://github.com/suchmememanyskill) | Internal | ✅ | ✅ | – | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| Snapmaker (built-in, default) | [Snapmaker](https://github.com/Snapmaker) | Internal | ✅ | ✅ | – | – | – | – | – | – | – | – | ✅ | — |
+| [OpenRFID](https://github.com/suchmememanyskill/OpenRFID) | [suchmememanyskill](https://github.com/suchmememanyskill) | Internal | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | External - wasikuss: [snapmaker-u1-remote-rfid-reader](https://github.com/wasikuss/snapmaker-u1-remote-rfid-reader) | [wasikuss](https://github.com/wasikuss) | External — ESP32-C3 + PN532 | – | ✅ | – | – | – | – | – | – | – | – | – | — |
 | External - baze: [snapmaker-u1-drybox-nfc-reader](https://gitlab.com/baze/snapmaker-u1-drybox-nfc-reader) | [baze](https://gitlab.com/baze) | External — ESP32-C3 + PN532, browser-flashable, [printable case](https://www.printables.com/model/1637071-remote-nfc-rfid-reader-for-snapmaker-u1) | – | ✅ | – | – | – | – | – | – | – | – | ✅ | — |
 
 **Notes:**
 
-- **OpenTag3D** tags are parsed by the built-in reader on extended firmware, alongside
-  OpenSpool, with no configuration needed. Tag versions 1.000-1.003 and 2.000-2.001 are
-  supported; see [OpenTag3D Format Design](opentag3d.md).
+- **OpenTag3D** tags are parsed by OpenRFID, which must be enabled — the built-in reader
+  does not read them. Tag versions 1.000-1.003 and 2.000-2.001 are supported; see
+  [OpenTag3D Format Design](opentag3d.md).
 - **SpoolLink** means the reader reports a tag's UID to the printer even when
   it can't parse the tag's contents (unknown format, encrypted, or blank), so
   the spool can still be resolved by [SpoolLink](../spoolman.md#apps) UID
@@ -157,10 +157,12 @@ enabled by default. Add the processor to the same file to use them:
 **NTAG tags not read:**
 - NTAG213/215/216 support requires extended firmware; original firmware only
   supports Mifare Classic 1K with the Snapmaker proprietary format
-- The reader retrieves the whole tag — 180 bytes on an NTAG213, 540 on an NTAG215,
+- OpenRFID retrieves the whole tag — 180 bytes on an NTAG213, 540 on an NTAG215,
   924 on an NTAG216 — so a record may sit anywhere in tag memory, whatever the
   format. Anything smaller than an NTAG213, such as a plain Mifare Ultralight, is
   rejected as unreadable
+- The built-in Snapmaker reader still caps NTAG reads at 540 bytes, so an OpenSpool
+  record behind large unrelated NDEF records on an NTAG216 is invisible to it
 - NTAG213 is read, but 144 bytes of user memory cannot hold a compliant OpenTag3D
   payload and the OpenTag3D specification dropped NTAG213 in version 2.000. An
   OpenSpool JSON record fits comfortably

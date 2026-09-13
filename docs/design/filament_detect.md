@@ -291,10 +291,11 @@ Transformation trace for this example:
 
 ## OpenTag3D Input
 
-OpenTag3D tags are read natively by the built-in reader. The payload is the memory-mapped
-body of an NDEF record with MIME type `application/opentag3d`, rather than JSON, and is
-decoded by `filament_protocol_opentag3d.py`. Tag versions 1.000-1.003 and 2.000-2.001 are
-supported.
+OpenTag3D tags are read by OpenRFID, not by the built-in reader. The payload is the
+memory-mapped body of an NDEF record with MIME type `application/opentag3d`, rather than
+JSON, and is decoded by OpenRFID's `tag/opentag3d` processor into a `GenericFilament`,
+which reaches `filament_detect` through OpenRFID's webhook exporters. Tag versions
+1.000-1.003 and 2.000-2.001 are supported.
 
 OpenTag3D mapping profile:
 
@@ -313,7 +314,7 @@ OpenTag3D mapping profile:
 | `weight` | `WEIGHT` | `N/A` | grams |
 | `measured_length` | `LENGTH` | `N/A` | metres |
 | `mfg_date` | `MF_DATE` | `N/A` | `YYYYMMDD`, `19700101` when unset |
-| `sku` (2.x) | `SKU` | `N/A` | numeric SKUs only, otherwise `0` |
+| `sku` (2.x) | `SKU` | `N/A` | non-digit characters are stripped and the remainder read as an integer (`PF-PLA-SILK-1042` -> `1042`); `0` when the field holds no digits |
 | `tag_version` | `N/A` | `N/A` | selects the memory map; unsupported major versions are rejected |
 
 All tag temperatures are stored divided by 5 and are multiplied back out on read. See
