@@ -10,22 +10,6 @@ The parser is upstream as of
 no OpenTag3D code of its own — it bumps the pinned revision, enables the processor, and
 carries a single one-line reader-independent patch that is itself an open upstream PR.
 
-## Motivation
-
-Before this, OpenTag3D was unreadable on the U1. OpenRFID's processor chain had no
-OpenTag3D processor, so a tag fell all the way through and the spool was reported UID-only.
-From a real scan:
-
-```
-tag_processor:openspool_tag_processor: NDEF MIME record found: mime_type='application/opentag3d', payload_len=216
-tag_processor:openspool_tag_processor: OpenSpool processing failed: No valid OpenSpool NDEF record found
-root: Detected tag with UID 533B3919640001 on reader slot_0_reader but failed to read data
-```
-
-The format is in active use — Polar Filament ships 2.x tags, and SpoolKid and SimplyPrint
-both read and write it — and the tag hardware requirement is already satisfied by the NTAG
-support in the `13-patch-rfid` overlay.
-
 ## Changes
 
 **Modified**
@@ -93,9 +77,30 @@ Upstream's processor is present and registered by upstream's own `main.py`, the 
 upstream's capability-container version, and none of the overlay's former OpenTag3D files
 remain.
 
-**Not yet confirmed on hardware.** An end-to-end scan-to-`filament_detect` round trip was
-observed with this overlay's previous in-tree processor, but not since switching to
-OpenRFID's. That check is outstanding.
+**Confirmed on hardware.** That image was flashed to a U1 and a Polar Filament NTAG216
+scanned on slot 0. The reader sized the read from the tag's capability container
+(`E1 10 6D 00` — 231 pages) and returned all 924 bytes, and upstream's processor parsed the
+216-byte `application/opentag3d` record out of it:
+
+```
+root: Polar Filament PLA Pure Filament (processed by opentag3d_tag_processor):
+- Color (ARGB): #FF14ADDB
+- Diameter: 1.75 mm
+- Weight: 1000 grams
+- Hotend Temp: 205.0C - 245.0C
+- Bed Temp: 60.0C
+- Drying: 65.0C for 0.0 hours
+- Manufactured on: 2026-04-03
+root: Successfully read tag with UID 533B3919640001 on reader slot_0_reader
+```
+
+`filament_detect` slot 0 then reported `VENDOR` `Polar Filament`, `MAIN_TYPE` `PLA`,
+`SUB_TYPE` `Pure`, `HOTEND_MIN_TEMP` 205, `HOTEND_MAX_TEMP` 245, `BED_TEMP` 60, `ALPHA` 255,
+`RGB_1` `0x14ADDB`, `CARD_TYPE` `NTAG`, `CARD_UID` `533B3919640001` — the full ten-field
+webhook contract, end to end.
+
+This tag populates `bed_temp` directly, so it does not exercise the patched line; that is
+covered by the regression test in the upstream PR.
 
 ### Note for reviewers building locally
 
@@ -104,25 +109,6 @@ does not re-fetch on a warm cache — `tmp/cache/OpenRFID` has to be removed fir
 on `$CI`, so CI is unaffected. Without that, a local build silently uses the old revision,
 and because the OpenTag3D parser arrives with the pin rather than with a patch, the symptom
 is tags simply not parsing.
-
-## Known limitations
-
-- **OpenTag3D 1.x tags are rejected.** Upstream bundles `schemas/v2.json` only, and a major
-  version with no schema is refused. Adding 1.x upstream needs both a v1 schema and a
-  decoder that walks v1's `extended` block, so it is a larger change than a single JSON
-  file.
-- **NTAG213 cannot carry OpenTag3D.** Its 144 bytes of user memory cannot hold a compliant
-  payload, and the specification dropped NTAG213 in 2.000. It reads fine for OpenSpool.
-- **The built-in Snapmaker reader still caps NTAG reads at 540 bytes.** Only OpenRFID's
-  reader sizes reads from the tag. An OpenSpool record sitting behind large unrelated NDEF
-  records on an NTAG216 remains invisible to the built-in path.
-- **Upstream's parser is less defensive than the one it replaces** in three remaining
-  places: a zero alpha byte is treated as transparent rather than unwritten, an absent
-  colour yields an empty list rather than opaque white, and a zero diameter is carried
-  through as `0.0`. None affects a well-formed tag. The transparent-alpha behaviour is
-  deliberate and covered by an upstream test, so it is a discussion rather than a patch; the
-  other two invent values, which upstream's adapter avoids by design. The fourth,
-  `bed_temp`, is patched here because it follows a policy upstream already applies.
 
 ---
 
