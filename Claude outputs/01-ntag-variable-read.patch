@@ -1,23 +1,3 @@
-diff -uNr a/usr/local/share/openrfid/main.py b/usr/local/share/openrfid/main.py
---- a/usr/local/share/openrfid/main.py	2026-09-13 20:58:09.965279416 +0000
-+++ b/usr/local/share/openrfid/main.py	2026-09-13 20:58:09.971445513 +0000
-@@ -22,6 +22,7 @@
- from tag.creality import CrealityTagProcessor
- from tag.elegoo import ElegooTagProcessor
- from tag.openspool import OpenspoolTagProcessor
-+from tag.opentag3d import OpenTag3DTagProcessor
- from tag.qidi.processor import QidiTagProcessor
- from tag.snapmaker import SnapmakerTagProcessor
- from tag.spoolease import SpooleaseTagProcessor
-@@ -59,6 +60,8 @@
-             return CrealityTagProcessor(config)
-         case "openspool_tag_processor":
-             return OpenspoolTagProcessor(config)
-+        case "opentag3d_tag_processor":
-+            return OpenTag3DTagProcessor(config)
-         case "spoolease_tag_processor":
-             return SpooleaseTagProcessor(config)
-         case "snapmaker_tag_processor":
 diff -uNr a/usr/local/share/openrfid/reader/fm175xx/constants.py b/usr/local/share/openrfid/reader/fm175xx/constants.py
 --- a/usr/local/share/openrfid/reader/fm175xx/constants.py	2026-09-13 20:58:09.967400128 +0000
 +++ b/usr/local/share/openrfid/reader/fm175xx/constants.py	2026-09-13 20:58:09.973443720 +0000

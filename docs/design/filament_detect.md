@@ -293,43 +293,46 @@ Transformation trace for this example:
 
 OpenTag3D tags are read by OpenRFID, not by the built-in reader. The payload is the
 memory-mapped body of an NDEF record with MIME type `application/opentag3d`, rather than
-JSON, and is decoded by OpenRFID's `tag/opentag3d` processor into a `GenericFilament`,
-which reaches `filament_detect` through OpenRFID's webhook exporters. Tag versions
-1.000-1.003 and 2.000-2.001 are supported.
+JSON, and is decoded by OpenRFID's own `opentag3d_tag_processor` into a `GenericFilament`.
+Tag versions 2.000-2.001 are supported; 1.x tags are rejected. See
+[OpenTag3D Format Design](opentag3d.md) for the tag-to-`GenericFilament` field reference.
 
-OpenTag3D mapping profile:
+`GenericFilament` reaches `filament_detect` through the `success_exporter` webhook defined
+in `openrfid_u1_vendor.cfg` or `openrfid_u1_generic.cfg`, whichever is enabled. That
+template is the whole contract: it writes **ten** fields and nothing else. Diameter,
+weight, length, drying settings, manufacturing date and SKU are decoded from the tag but
+are not carried on this path, because `GenericFilament` either drops them or the exporter
+does not send them.
 
-| OpenTag3D field | `filament_detect.info` | `print_task_config` target | Rule |
-|---|---|---|---|
-| `manufacturer` | `VENDOR`, `MANUFACTURER` | `filament_vendor[channel]` | `Generic` when empty |
-| `material` | `MAIN_TYPE` | `filament_type[channel]` | uppercased |
-| `material_mod` | `SUB_TYPE` | `filament_sub_type[channel]` | `Basic` when empty |
-| `color_1` | `RGB_1`, `ALPHA` | `filament_color_rgba[channel]` | RGBA on the tag; a zero alpha byte is read as `0xFF` |
-| `color_2`-`color_4` | `RGB_2`-`RGB_4` | `N/A` | all-zero entries skipped; `COLOR_NUMS` is the count of populated colors |
-| `print_temp`, `min_print_temp`, `max_print_temp` | `HOTEND_MIN_TEMP`, `HOTEND_MAX_TEMP` | `N/A` | min/max when populated, otherwise `print_temp` for both |
-| `bed_temp`, `min_bed_temp`, `max_bed_temp` | `BED_TEMP` | `N/A` | `bed_temp`, falling back to `min_bed_temp` then `max_bed_temp` |
-| `max_dry_temp` | `DRYING_TEMP` | `N/A` | |
-| `dry_time` | `DRYING_TIME` | `N/A` | hours |
-| `diameter` | `DIAMETER` | `N/A` | micrometres on the tag, hundredths of a mm in `filament_detect` |
-| `weight` | `WEIGHT` | `N/A` | grams |
-| `measured_length` | `LENGTH` | `N/A` | metres |
-| `mfg_date` | `MF_DATE` | `N/A` | `YYYYMMDD`, `19700101` when unset |
-| `sku` (2.x) | `SKU` | `N/A` | non-digit characters are stripped and the remainder read as an integer (`PF-PLA-SILK-1042` -> `1042`); `0` when the field holds no digits |
-| `tag_version` | `N/A` | `N/A` | selects the memory map; unsupported major versions are rejected |
+| `filament_detect.info` | Source | Rule |
+|---|---|---|
+| `VENDOR` | `filament.manufacturer` | vendor profile: passed through. Generic profile: `Snapmaker` when the manufacturer is `Snapmaker`, otherwise the literal `Generic` |
+| `MAIN_TYPE` | `filament.type` | the tag's `material`, with `CF` / `GF` folded in by `GenericFilament` as `-CF` / `-GF` |
+| `SUB_TYPE` | `filament.modifiers` | space-joined. Generic profile sends it only for `Snapmaker`, otherwise empty |
+| `HOTEND_MIN_TEMP` | `filament.hotend_min_temp_c` | tag `min_print_temp`, else `print_temp` |
+| `HOTEND_MAX_TEMP` | `filament.hotend_max_temp_c` | tag `max_print_temp`, else `print_temp` |
+| `BED_TEMP` | `filament.bed_temp_c` | tag `bed_temp` only |
+| `ALPHA` | `filament.alpha` | alpha byte of the primary colour |
+| `RGB_1` | `filament.rgb` | primary colour, integer RGB |
+| `CARD_UID` | `scan.uid` | byte array, from the hardware read |
+| `CARD_TYPE` | `scan.tag_type` | `NTAG` or `M1` |
 
-All tag temperatures are stored divided by 5 and are multiplied back out on read. See
-[OpenTag3D Format Design](opentag3d.md) for the full field reference.
+`COLOR_NUMS` is therefore always 1 on this path, and `FIRST_LAYER_TEMP`, `DIAMETER`,
+`WEIGHT`, `LENGTH`, `DRYING_TEMP`, `DRYING_TIME`, `MF_DATE` and `SKU` keep their
+`FILAMENT_INFO_STRUCT` defaults. `FIRST_LAYER_TEMP` staying 0 is why a slicer reading it
+as a nozzle temperature sees nothing; `HOTEND_MAX_TEMP` is the populated field.
 
 ## References
 
 Repository overlays:
 
 - `overlays/firmware-extended/13-patch-rfid/root/home/lava/klipper/klippy/extras/filament_protocol_ndef.py`
-- `overlays/firmware-extended/13-patch-rfid/root/home/lava/klipper/klippy/extras/filament_protocol_opentag3d.py`
 - `overlays/firmware-extended/13-patch-rfid/patches/02-add-ndef-protocol.patch`
 - `overlays/firmware-extended/13-patch-rfid/patches/05-add-filament-detect-set-endpoint.patch`
 - `overlays/firmware-extended/13-patch-rfid/patches/09-add-card-event-time.patch`
 - `overlays/firmware-extended/64-app-openrfid/root/usr/local/share/openrfid/extended/openrfid_u1_base.cfg`
+- `overlays/firmware-extended/64-app-openrfid/root/usr/local/share/openrfid/extended/openrfid_u1_vendor.cfg`
+- `overlays/firmware-extended/64-app-openrfid/root/usr/local/share/openrfid/extended/openrfid_u1_generic.cfg`
 
 Klipper source code:
 

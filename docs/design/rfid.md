@@ -30,7 +30,8 @@ What each detection system or hardware reader can identify.
 **Notes:**
 
 - **OpenTag3D** tags are parsed by OpenRFID, which must be enabled — the built-in reader
-  does not read them. Tag versions 1.000-1.003 and 2.000-2.001 are supported; see
+  does not read them. Tag versions 2.000-2.001 are supported; 1.x tags are rejected
+  because OpenRFID ships no v1 schema yet. See
   [OpenTag3D Format Design](opentag3d.md).
 - **SpoolLink** means the reader reports a tag's UID to the printer even when
   it can't parse the tag's contents (unknown format, encrypted, or blank), so
